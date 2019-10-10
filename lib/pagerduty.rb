@@ -54,26 +54,32 @@ class Pagerduty # rubocop:disable Metrics/ClassLength
     parse_json_response(response, :user)
   end
 
-  def get_layer(id, range_begin, range_end)
+  def get_layers(id, range_begin, range_end)
+    get_schedule(id, range_begin, range_end)[:schedule_layers]
+  end
+
+  def get_schedule(id, range_begin, range_end)
     # Get the schedule with extra stuff resolved because we've passed through
     # the current time.
     url = "/schedules/#{id}?since=#{range_begin}&until=#{range_end}"
     response = http.get(url)
     raise Exceptions::ScheduleNotFound if response.status == 404
 
-    last_layer = parse_json_response(response, :schedule)[:schedule_layers].last
+    parse_json_response(response, :schedule)
+  end
 
-    if last_layer[:rendered_schedule_entries].empty?
+  def get_base_layer(id, range_begin, range_end)
+    base_layer = get_layers(id, range_begin, range_end).last
+
+    if base_layer[:rendered_schedule_entries].empty?
       raise Exceptions::PeriodNotProvided
     end
 
-    last_layer
+    base_layer
   end
 
-  def get_base_layer(id, timezone)
-    time_range = PDTime.get_time_range(timezone)
-
-    layer = get_layer(id, time_range['now_begin'], time_range['now_end'])
+  def get_user_from_layer(id, time_range)
+    layer = get_base_layer(id, time_range['now_begin'], time_range['now_end'])
 
     layer_entry = layer[:rendered_schedule_entries].first
     user = layer_entry[:user]
@@ -84,6 +90,64 @@ class Pagerduty # rubocop:disable Metrics/ClassLength
       'end' => layer_entry[:end],
       'now' => time_range['now_begin']
     }
+  end
+
+  def get_users_from_layers(id, time_range)
+    schedule = get_schedule(id, time_range['now_begin'], time_range['now_end'])
+    layers = schedule[:schedule_layers]
+    base_layer = layers.last
+
+    layer_users = get_users_from_layer(layers.last)
+    formatted_layer_users = format_users(layer_users)
+
+    override_users = get_users_from_layer(schedule[:overrides_subschedule])
+    formatted_override_users = format_users(override_users)
+
+    formatted_override_users << 'None.' if formatted_override_users.empty?
+
+    {
+      'layer_name' => base_layer[:name],
+      'layer_entries' => formatted_layer_users,
+      'override_entries' => formatted_override_users
+    }
+  end
+
+  def user_cache
+    @user_cache ||= {}
+  end
+
+  def get_users_from_layer(layer)
+    users = []
+
+    layer[:rendered_schedule_entries].each do |entry|
+      next if entry[:user].nil?
+
+      # We only want to query the API once per user.
+      user_cache[entry[:user][:id]] ||= get_user(entry[:user][:id])
+
+      users << {
+        start: entry[:start],
+        end: entry[:end],
+        summary: entry[:user][:summary],
+        email: user_cache[entry[:user][:id]][:email]
+      }
+    end
+
+    users
+  end
+
+  def format_users(users)
+    formatted_users = []
+    users.each do |u|
+      if PDTime.is_now?(u[:start], u[:end])
+        user = "*#{u[:start]} - #{u[:end]}  #{u[:email]} (#{u[:summary]})* <-- Now."
+      else
+        user = "#{u[:start]} - #{u[:end]}  #{u[:email]} (#{u[:summary]})"
+      end
+      formatted_users << user
+    end
+
+    formatted_users
   end
 
   def get_incident(id)

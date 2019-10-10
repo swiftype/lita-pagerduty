@@ -53,6 +53,9 @@ en:
           base_lookup:
             syntax: pager base <schedule>
             desc: Show who the base on call person is for the given schedule
+          base_lookup_period:
+            syntax: pager base <schedule> <unit> [<offset>]
+            desc: "Show who the base on call people are for the given schedule, over a given period. Unit=(month|year). Offset: 0=current, -1=last, 1=next etc."
           whos_on_call:
             syntax: who's on call?
             desc: Show everyone currently on call (not implemented yet)
@@ -93,6 +96,11 @@ en:
           response: "%{name} (%{email}) is on call in the base layer (%{layer_name}) of %{schedule_name}."
           no_matching_schedule: "No matching schedules found for '%{schedule_name}'"
           no_one_on_call: "No one is currently on call for %{schedule_name}"
+        base_lookup_period:
+          response: "People on call for (%{layer_name}) of %{schedule_name}:\n%{layer_entries}\n\nOverrides:\n%{override_entries}"
+          no_matching_schedule: "No matching schedules found for '%{schedule_name}'"
+          no_one_on_call: "No one is currently on call for %{schedule_name}"
+          unknown_unit: "I don't know the unit #{unit}. Expecting month or year."
         pager_me:
           success: "%{name} (%{email}) is now on call until %{finish}"
           failure: "failed to take the pager"
