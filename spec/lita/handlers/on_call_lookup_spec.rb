@@ -6,6 +6,10 @@ describe Lita::Handlers::Pagerduty, lita_handler: true do
       is_expected.to route_command('pager oncall abc').to(:on_call_lookup)
     end
 
+    it 'works with extra whitespace' do
+      is_expected.to route_command('pager   oncall    abc').to(:on_call_lookup)
+    end
+
     it 'schedule not found' do
       expect_any_instance_of(Pagerduty).to receive(:get_schedules).and_raise(Exceptions::SchedulesEmptyList)
       send_command('pager oncall abc')
