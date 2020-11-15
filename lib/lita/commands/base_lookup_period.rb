@@ -5,13 +5,18 @@ module Commands
     include Base
 
     def call
-      response message: 'base_lookup_period.response', params: success_params
-    rescue Exceptions::SchedulesEmptyList
-      response message: 'base_lookup_period.no_matching_schedule',
-               params: { schedule_name: schedule_name }
-    rescue Exceptions::NoOncallUser
-      response message: 'base_lookup_period.no_one_on_call',
-               params: { schedule_name: schedule_name }
+      begin
+        response message: 'base_lookup_period.response', params: success_params
+      rescue Exceptions::SchedulesEmptyList
+        response message: 'base_lookup_period.no_matching_schedule',
+                params: { schedule_name: schedule_name }
+      rescue Exceptions::NoOncallUser
+        response message: 'base_lookup_period.no_one_on_call',
+                params: { schedule_name: schedule_name }
+      rescue Exceptions::UnknownUnit
+        response message: 'base_lookup_period.unknown_unit',
+                params: {unit: unit}
+      end
     end
 
     private
@@ -51,20 +56,14 @@ module Commands
       id = schedule[:id]
       time_zone = schedule[:time_zone]
 
-      if unit == 'month'
+      if unit == 'week'
+        time_range = PDTime.get_whole_week(time_zone, offset)
+      elsif unit == 'month'
         time_range = PDTime.get_whole_month(time_zone, offset)
       elsif unit == 'year'
         time_range = PDTime.get_whole_year(time_zone, offset)
       else
-        # TODO This doesn't work.
-#         rescue Exceptions::UnknownUnit
-#           response message: 'base_lookup_period.unknown_unit',
-#                   params: {unit: unit}
-        # It gives
-#         SyntaxError: /home/ksandom/files/work/elastic/tasks/litabot/lita-pagerduty2/lib/lita/commands/base_lookup_period.rb:59: syntax error, unexpected keyword_rescue
-#                 rescue Exceptions::UnknownUnit
-#                 ^~~~~~
-
+        raise Exceptions::UnknownUnit
       end
 
       @users ||= pagerduty.get_users_from_layers(id, time_range)
