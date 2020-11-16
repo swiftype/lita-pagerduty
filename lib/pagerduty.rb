@@ -97,6 +97,8 @@ class Pagerduty # rubocop:disable Metrics/ClassLength
     layers = schedule[:schedule_layers]
     base_layer = layers.last
 
+    raise Exceptions::SchedulesEmptyList if layers.empty?
+
     layer_users = get_users_from_layer(layers.last)
     formatted_layer_users = format_users(layer_users)
 
