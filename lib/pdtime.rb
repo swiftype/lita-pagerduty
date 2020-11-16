@@ -133,4 +133,17 @@ class PDTime
   def self.get_next_year(time_zone)
     get_whole_year(time_zone, 0)
   end
+
+  def self.get_whole_week(time_zone, week_offset)
+    today = get_now_unformatted(time_zone)
+    days_since_sunday = 0 - today.wday # Sunday is wday 0
+    days_from_today_until_desired_sunday = days_since_sunday + (7 * week_offset)
+    desired_week_start = today + days_from_today_until_desired_sunday
+    desired_week_end = desired_week_start + 7
+
+    {
+      'now_begin' => desired_week_start.strftime('%Y-%m-%d') + 'T23:59:59',
+      'now_end' => desired_week_end.strftime('%Y-%m-%d') + 'T00:00:00'
+    }
+  end
 end
